@@ -2770,8 +2770,7 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
         CTxOut asset_out(asset, asset_amount, asset_script);
         // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
         if (IsBlindDestination(asset_dest)) {
-            CPubKey asset_blind = GetDestinationBlindingKey(asset_dest);
-            asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
+            asset_out.nNonce.SetToPubKey(GetDestinationBlindingKey(asset_dest));
         }
 
         mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
@@ -2788,8 +2787,7 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
         CTxOut token_out(token, token_amount, token_script);
         // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
         if (IsBlindDestination(token_dest)) {
-            CPubKey token_blind = GetDestinationBlindingKey(token_dest);
-            token_out.nNonce.vchCommitment = std::vector<unsigned char>(token_blind.begin(), token_blind.end());
+            token_out.nNonce.SetToPubKey(GetDestinationBlindingKey(token_dest));
         }
 
         mtx.vin[issuance_input_index].assetIssuance.nInflationKeys = token_amount;
@@ -2821,8 +2819,7 @@ void reissueasset_base(CMutableTransaction& mtx, size_t issuance_input_index, co
     CTxOut asset_out(asset, asset_amount, asset_script);
     // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
     if (IsBlindDestination(asset_dest)) {
-        CPubKey asset_blind = GetDestinationBlindingKey(asset_dest);
-        asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
+        asset_out.nNonce.SetToPubKey(GetDestinationBlindingKey(asset_dest));
     }
     mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
     mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;

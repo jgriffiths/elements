@@ -150,8 +150,8 @@ bool CCoinsViewCache::SpendCoin(const COutPoint &outpoint, Coin* moveout) {
 // we have to force set it to an empty coin without the default asset commitment.
 Coin generateEmptyCoin() {
     Coin coin;
-    coin.out.nValue.vchCommitment.clear();
-    coin.out.nAsset.vchCommitment.clear();
+    coin.out.nValue.SetNull();
+    coin.out.nAsset.SetNull();
     return coin;
 }
 static const Coin coinEmpty = generateEmptyCoin();

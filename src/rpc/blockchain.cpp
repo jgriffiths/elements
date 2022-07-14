@@ -2629,12 +2629,12 @@ static RPCHelpMan scantxoutset()
                 if (txo.nValue.IsExplicit()) {
                     unspent.pushKV("amount", ValueFromAmount(txo.nValue.GetAmount()));
                 } else {
-                    unspent.pushKV("amountcommitment", HexStr(txo.nValue.vchCommitment));
+                    unspent.pushKV("amountcommitment", txo.nValue.GetHex());
                 }
                 if (txo.nAsset.IsExplicit()) {
                     unspent.pushKV("asset", txo.nAsset.GetAsset().GetHex());
                 } else {
-                    unspent.pushKV("assetcommitment", HexStr(txo.nAsset.vchCommitment));
+                    unspent.pushKV("assetcommitment", txo.nAsset.GetHex());
                 }
                 unspent.pushKV("height", (int32_t)coin.nHeight);
 

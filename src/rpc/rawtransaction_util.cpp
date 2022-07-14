@@ -354,7 +354,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                     blind_pub = GetDestinationBlindingKey(destination);
                     if (!outputs_aux) {
                         // Only use the pubkey-in-nonce hack if the caller is not getting the pubkeys the nice way.
-                        out.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+                        out.nNonce.SetToPubKey(blind_pub);
                     }
                 }
                 psbt_out.m_blinding_pubkey = blind_pub;
@@ -451,7 +451,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
                     newcoin.out.nValue = CConfidentialValue(AmountFromValue(find_value(prevOut, "amount")));
                 } else if (prevOut.exists("amountcommitment")) {
                     // Segwit sigs require the amount commitment to be sighashed
-                    newcoin.out.nValue.vchCommitment = ParseHexO(prevOut, "amountcommitment");
+                    newcoin.out.nValue.assign(ParseHexO(prevOut, "amountcommitment"));
                 }
                 newcoin.nHeight = 1;
                 coins[out] = std::move(newcoin);

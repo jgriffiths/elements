@@ -329,12 +329,12 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_add
             if (issuance.nAmount.IsExplicit()) {
                 issue.pushKV("assetamount", ValueFromAmount(issuance.nAmount.GetAmount()));
             } else if (issuance.nAmount.IsCommitment()) {
-                issue.pushKV("assetamountcommitment", HexStr(issuance.nAmount.vchCommitment));
+                issue.pushKV("assetamountcommitment", issuance.nAmount.GetHex());
             }
             if (issuance.nInflationKeys.IsExplicit()) {
                 issue.pushKV("tokenamount", ValueFromAmount(issuance.nInflationKeys.GetAmount()));
             } else if (issuance.nInflationKeys.IsCommitment()) {
-                issue.pushKV("tokenamountcommitment", HexStr(issuance.nInflationKeys.vchCommitment));
+                issue.pushKV("tokenamountcommitment", issuance.nInflationKeys.GetHex());
             }
             in.pushKV("issuance", issue);
         }
@@ -389,8 +389,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_add
             }
 
             out.pushKV("commitmentnonce", txout.nNonce.GetHex());
-            CPubKey pubkey(txout.nNonce.vchCommitment);
-            out.pushKV("commitmentnonce_fully_valid", pubkey.IsFullyValid());
+            out.pushKV("commitmentnonce_fully_valid", txout.nNonce.GetAsPubKey().IsFullyValid());
         }
         out.pushKV("n", (int64_t)i);
 

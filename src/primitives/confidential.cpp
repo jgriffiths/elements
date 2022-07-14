@@ -1,6 +1,6 @@
 
 #include <primitives/confidential.h>
-
+#include <pubkey.h>
 #include <tinyformat.h>
 
 void CConfidentialAsset::SetToAsset(const CAsset& asset)
@@ -16,6 +16,17 @@ void CConfidentialValue::SetToAmount(const CAmount amount)
     vchCommitment.resize(nExplicitSize);
     vchCommitment[0] = 1;
     WriteBE64(&vchCommitment[1], amount);
+}
+
+
+void CConfidentialNonce::SetToPubKey(const CPubKey& pubkey)
+{
+    vchCommitment.assign(pubkey.begin(), pubkey.end());
+}
+
+CPubKey CConfidentialNonce::GetAsPubKey() const
+{
+    return CPubKey(vchCommitment);
 }
 
 std::string CAssetIssuance::ToString() const

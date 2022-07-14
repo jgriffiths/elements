@@ -3265,11 +3265,11 @@ static RPCHelpMan listunspent()
         entry.pushKV("amount", ValueFromAmount(amount));
         if (g_con_elementsmode) {
             if (tx_out.nAsset.IsCommitment()) {
-                entry.pushKV("assetcommitment", HexStr(tx_out.nAsset.vchCommitment));
+                entry.pushKV("assetcommitment", tx_out.nAsset.GetHex());
             }
             entry.pushKV("asset", assetid.GetHex());
             if (tx_out.nValue.IsCommitment()) {
-                entry.pushKV("amountcommitment", HexStr(tx_out.nValue.vchCommitment));
+                entry.pushKV("amountcommitment", tx_out.nValue.GetHex());
             }
             entry.pushKV("amountblinder", out.tx->GetOutputAmountBlindingFactor(out.i).ToString());
             entry.pushKV("assetblinder", out.tx->GetOutputAssetBlindingFactor(out.i).ToString());
@@ -5031,7 +5031,7 @@ static RPCHelpMan walletcreatefundedpsbt()
         CHECK_NONFATAL (search_it != psbt_outs.end());
         CPubKey& blind_pub = search_it->second.m_blinding_pubkey;
         if (blind_pub.IsFullyValid()) {
-            txout.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+            txout.nNonce.SetToPubKey(blind_pub);
         }
     }
     FundTransaction(wallet, rawTx, fee, change_position, request.params[3], coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
@@ -5052,7 +5052,7 @@ static RPCHelpMan walletcreatefundedpsbt()
     for (const CTxOut& txout : rawTx.vout) {
         if (!txout.nNonce.IsNull() && !psbt_outs.count(txout)) {
             PSBTOutput new_out{2}; // psbtv2 output
-            new_out.m_blinding_pubkey.Set(txout.nNonce.vchCommitment.begin(), txout.nNonce.vchCommitment.end());
+            new_out.m_blinding_pubkey = txout.nNonce.GetAsPubKey();
             new_out.m_blinder_index = blinder_index;
             psbt_outs.insert(std::make_pair(txout, new_out));
         }
@@ -6194,7 +6194,7 @@ void FillBlinds(CWallet* pwallet, CMutableTransaction& tx, std::vector<uint256>&
     for (size_t nOut = 0; nOut < tx.vout.size(); ++nOut) {
         CTxOut& out = tx.vout[nOut];
         if (out.nValue.IsExplicit()) {
-            CPubKey pubkey(out.nNonce.vchCommitment);
+            CPubKey pubkey(out.nNonce.GetAsPubKey());
             if (!pubkey.IsFullyValid()) {
                 output_pubkeys.push_back(CPubKey());
             } else {

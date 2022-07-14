@@ -12,6 +12,8 @@
 
 extern bool g_con_elementsmode;
 
+class CPubKey;
+
 /**
  * Confidential assets, values, and nonces all share enough code in common
  * that it makes sense to define a common abstract base class. */
@@ -22,7 +24,9 @@ public:
     static const size_t nExplicitSize = ExplicitSize;
     static const size_t nCommittedSize = 33;
 
+protected:
     std::vector<unsigned char> vchCommitment;
+public:
 
     CConfidentialCommitment() { SetNull(); }
 
@@ -80,12 +84,49 @@ public:
         return vchCommitment.size()==nCommittedSize && (vchCommitment[0]==PrefixA || vchCommitment[0]==PrefixB);
     }
 
+    /* Dummy values are used for tx sizing purposes only */
+    void SetToExplicitDummy()
+    {
+        vchCommitment.resize(nExplicitSize);
+    }
+
+    void SetToCommitmentDummy()
+    {
+        vchCommitment.resize(nCommittedSize);
+    }
+
+    void SetToEmptyDummy()
+    {
+        vchCommitment.resize(1);
+    }
+
     bool IsValid() const
     {
         return IsNull() || IsExplicit() || IsCommitment();
     }
 
     std::string GetHex() const { return HexStr(vchCommitment); }
+    const std::vector<unsigned char>& GetCommitment() const
+    {
+        assert(IsCommitment());
+        return vchCommitment;
+    }
+
+    const std::vector<unsigned char>& GetUnsafeBytes() const
+    {
+        return vchCommitment;
+    }
+
+    std::vector<unsigned char>& GetUnsafeBytes()
+    {
+        return vchCommitment;
+    }
+
+    void assign(const std::vector<unsigned char>& raw_bytes)
+    {
+        /* FIXME: Validate raw_bytes */
+        vchCommitment.assign(raw_bytes.begin(), raw_bytes.end());
+    }
 
     friend bool operator==(const CConfidentialCommitment& a, const CConfidentialCommitment& b)
     {
@@ -158,6 +199,9 @@ class CConfidentialNonce : public CConfidentialCommitment<33, 2, 3>
 {
 public:
     CConfidentialNonce() { SetNull(); }
+
+    void SetToPubKey(const CPubKey& pubkey);
+    CPubKey GetAsPubKey() const;
 };
 
 /** A new asset issuance, or a reissuance (inflation) of an existing asset */

@@ -767,7 +767,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
         //TODO Have blinding do some extremely minimal rangeproof
         CTxOut newTxOut(det->o_assets.back(), 0, CScript() << OP_RETURN);
         CPubKey blind_pub = wallet->GetBlindingPubKey(newTxOut.scriptPubKey); // irrelevant, just needs to be non-null
-        newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+        newTxOut.nNonce.SetToPubKey(blind_pub);
         txNew.vout.push_back(newTxOut);
         det->o_pubkeys.push_back(wallet->GetBlindingPubKey(newTxOut.scriptPubKey));
         det->o_amount_blinds.push_back(uint256());
@@ -974,15 +974,15 @@ bool CWallet::CreateTransactionInternal(
     coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout);
     if (g_con_elementsmode) {
         if (blind_details) {
-            change_prototype_txout.nAsset.vchCommitment.resize(33);
-            change_prototype_txout.nValue.vchCommitment.resize(33);
-            change_prototype_txout.nNonce.vchCommitment.resize(33);
+            change_prototype_txout.nAsset.SetToCommitmentDummy();
+            change_prototype_txout.nValue.SetToCommitmentDummy();
+            change_prototype_txout.nNonce.SetToCommitmentDummy();
             coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout);
             coin_selection_params.change_output_size += (MAX_RANGEPROOF_SIZE + DEFAULT_SURJECTIONPROOF_SIZE + WITNESS_SCALE_FACTOR - 1)/WITNESS_SCALE_FACTOR;
         } else {
-            change_prototype_txout.nAsset.vchCommitment.resize(33);
-            change_prototype_txout.nValue.vchCommitment.resize(9);
-            change_prototype_txout.nNonce.vchCommitment.resize(1);
+            change_prototype_txout.nAsset.SetToExplicitDummy();
+            change_prototype_txout.nValue.SetToExplicitDummy();
+            change_prototype_txout.nNonce.SetToEmptyDummy();
             coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout);
         }
     }
@@ -1038,7 +1038,7 @@ bool CWallet::CreateTransactionInternal(
     for (const auto& recipient : vecSend)
     {
         CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
-        txout.nNonce.vchCommitment = std::vector<unsigned char>(recipient.confidentiality_key.begin(), recipient.confidentiality_key.end());
+        txout.nNonce.SetToPubKey(recipient.confidentiality_key);
 
         // Include the fee cost for outputs.
         if (!coin_selection_params.m_subtract_fee_outputs) {
@@ -1175,7 +1175,7 @@ bool CWallet::CreateTransactionInternal(
                 blind_details->change_to_blind++;
                 blind_details->only_change_pos = i;
                 // Place the blinding pubkey here in case of fundraw calls
-                newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub->begin(), blind_pub->end());
+                newTxOut.nNonce.SetToPubKey(blind_pub.value());
             } else {
                 blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + i, CPubKey());
             }
@@ -1651,7 +1651,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
             continue;
         }
 
-        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.nNonce.vchCommitment), setSubtractFeeFromOutputs.count(idx) == 1};
+        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), txOut.nNonce.GetAsPubKey(), setSubtractFeeFromOutputs.count(idx) == 1};
         vecSend.push_back(recipient);
     }
 

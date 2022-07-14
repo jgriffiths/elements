@@ -52,9 +52,7 @@ CAmountMap GetFeeMap(const CTransaction& tx) {
 }
 
 bool CRangeCheck::operator()() {
-    assert(val->IsCommitment());
-
-    if (!CachingRangeProofChecker(store).VerifyRangeProof(rangeproof, val->vchCommitment, assetCommitment, scriptPubKey, secp256k1_ctx_verify_amounts)) {
+    if (!CachingRangeProofChecker(store).VerifyRangeProof(rangeproof, val->GetCommitment(), assetCommitment, scriptPubKey, secp256k1_ctx_verify_amounts)) {
         error = SCRIPT_ERR_RANGEPROOF;
         return false;
     }
@@ -121,7 +119,7 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, se
             return false;
         }
 
-        if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &value_commit, value.vchCommitment.data()) != 1) {
+        if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &value_commit, value.GetCommitment().data()) != 1) {
             return false;
         }
     } else {
@@ -168,7 +166,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             assert(ret != 0);
         }
         else if (asset.IsCommitment()) {
-            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
+            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, asset.GetCommitment().data()) != 1)
                 return false;
         }
         else {
@@ -185,7 +183,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explicit_blinds, val.GetAmount(), &gen) != 1)
                 return false;
         } else if (val.IsCommitment()) {
-            if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
+            if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, val.GetCommitment().data()) != 1)
                 return false;
         } else {
                 return false;
@@ -235,12 +233,12 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, derived_generator, &gen);
 
             // Belt-and-suspenders: Check that asset commitment from issuance input is correct size
-            if (asset.vchCommitment.size() != sizeof(derived_generator)) {
+            if (asset.GetCommitment().size() != sizeof(derived_generator)) {
                 return false;
             }
 
             // We have already checked the outputs' generator commitment for general validity, so directly compare serialized bytes
-            if (memcmp(asset.vchCommitment.data(), derived_generator, sizeof(derived_generator))) {
+            if (memcmp(asset.GetCommitment().data(), derived_generator, sizeof(derived_generator))) {
                 return false;
             }
         }
@@ -309,7 +307,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             assert(ret != 0);
         }
         else if (asset.IsCommitment()) {
-            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
+            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, asset.GetCommitment().data()) != 1)
                 return false;
         }
         else {
@@ -335,7 +333,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             assert(ret == 1);
         }
         else if (val.IsCommitment()) {
-            if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
+            if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, val.GetCommitment().data()) != 1)
                 return false;
         } else {
             return false;
@@ -355,7 +353,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
     for (size_t i = 0; i < tx.vout.size(); i++) {
         const CConfidentialValue& val = tx.vout[i].nValue;
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
-        std::vector<unsigned char> vchAssetCommitment = asset.vchCommitment;
+        std::vector<unsigned char> vchAssetCommitment;
         const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
         if (val.IsExplicit())
         {
@@ -366,7 +364,10 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         if (asset.IsExplicit()) {
             int ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
             assert(ret != 0);
+            vchAssetCommitment.resize(CConfidentialAsset::nCommittedSize);
             secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchAssetCommitment[0], &gen);
+        } else if (asset.IsCommitment()) {
+            vchAssetCommitment.assign(asset.GetCommitment().begin(), asset.GetCommitment().end());
         }
         if (!ptxoutwit) {
             return false;
@@ -390,7 +391,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         }
         if (!ptxoutwit)
             return false;
-        if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
+        if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, asset.GetCommitment().data()) != 1)
             return false;
 
         secp256k1_surjectionproof proof;

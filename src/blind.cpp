@@ -57,7 +57,7 @@ bool VerifyConfidentialPair(const CConfidentialValue& conf_value, const CConfide
     // Valid asset commitment?
     secp256k1_generator observed_gen;
     if (conf_asset.IsCommitment()) {
-        if (secp256k1_generator_parse(secp256k1_blind_context, &observed_gen, &conf_asset.vchCommitment[0]) != 1)
+        if (secp256k1_generator_parse(secp256k1_blind_context, &observed_gen, conf_asset.GetCommitment().data()) != 1)
             return false;
     } else if (conf_asset.IsExplicit()) {
         if (secp256k1_generator_generate(secp256k1_blind_context, &observed_gen, conf_asset.GetAsset().begin()) != 1)
@@ -66,7 +66,7 @@ bool VerifyConfidentialPair(const CConfidentialValue& conf_value, const CConfide
 
     // Valid value commitment?
     secp256k1_pedersen_commitment value_commit;
-    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) != 1) {
+    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.GetCommitment().data()) != 1) {
         return false;
     }
 
@@ -109,16 +109,15 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
     if (!blinding_key.IsValid() || vchRangeproof.size() == 0) {
         return false;
     }
-    CPubKey ephemeral_key(nonce_commitment.vchCommitment);
-    if (nonce_commitment.vchCommitment.size() > 0 && !ephemeral_key.IsFullyValid()) {
+    if (!nonce_commitment.IsNull() && !nonce_commitment.GetAsPubKey().IsFullyValid()) {
         return false;
     }
 
     // ECDH or not depending on if nonce commitment is non-empty
     uint256 nonce;
     bool blank_nonce = false;
-    if (nonce_commitment.vchCommitment.size() > 0) {
-        nonce = blinding_key.ECDH(ephemeral_key);
+    if (!nonce_commitment.IsNull()) {
+        nonce = blinding_key.ECDH(nonce_commitment.GetAsPubKey());
         CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
     } else {
         // Use blinding key directly, and don't commit to a scriptpubkey
@@ -138,7 +137,7 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
     // Valid asset commitment?
     secp256k1_generator observed_gen;
     if (conf_asset.IsCommitment()) {
-        if (secp256k1_generator_parse(secp256k1_blind_context, &observed_gen, &conf_asset.vchCommitment[0]) != 1)
+        if (secp256k1_generator_parse(secp256k1_blind_context, &observed_gen, conf_asset.GetCommitment().data()) != 1)
             return false;
     } else if (conf_asset.IsExplicit()) {
         if (secp256k1_generator_generate(secp256k1_blind_context, &observed_gen, conf_asset.GetAsset().begin()) != 1)
@@ -147,7 +146,7 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
 
     // Valid value commitment?
     secp256k1_pedersen_commitment value_commit;
-    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) != 1) {
+    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.GetCommitment().data()) != 1) {
         return false;
     }
 
@@ -235,8 +234,7 @@ uint256 GenerateOutputRangeproofNonce(CTxOut& out, const CPubKey output_pubkey)
     ephemeral_key.MakeNewKey(true);
     CPubKey ephemeral_pubkey = ephemeral_key.GetPubKey();
     assert(ephemeral_pubkey.size() == CConfidentialNonce::nCommittedSize);
-    out.nNonce.vchCommitment.resize(ephemeral_pubkey.size());
-    memcpy(&out.nNonce.vchCommitment[0], &ephemeral_pubkey[0], ephemeral_pubkey.size());
+    out.nNonce.SetToPubKey(ephemeral_pubkey);
     // Generate nonce
     uint256 nonce = ephemeral_key.ECDH(output_pubkey);
     CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
@@ -266,20 +264,20 @@ bool GenerateRangeproof(std::vector<unsigned char>& rangeproof, const std::vecto
 
 void BlindAsset(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, const CAsset& asset, const unsigned char* asset_blindptr)
 {
-    conf_asset.vchCommitment.resize(CConfidentialAsset::nCommittedSize);
+    conf_asset.GetUnsafeBytes().resize(CConfidentialAsset::nCommittedSize);
     int ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &asset_gen, asset.begin(), asset_blindptr);
     assert(ret == 1);
-    ret = secp256k1_generator_serialize(secp256k1_blind_context, conf_asset.vchCommitment.data(), &asset_gen);
+    ret = secp256k1_generator_serialize(secp256k1_blind_context, conf_asset.GetUnsafeBytes().data(), &asset_gen);
     assert(ret != 0);
 }
 
 void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_commitment& value_commit, const unsigned char* value_blindptr, const secp256k1_generator& asset_gen, const CAmount amount)
 {
     int ret;
-    conf_value.vchCommitment.resize(CConfidentialValue::nCommittedSize);
+    conf_value.GetUnsafeBytes().resize(CConfidentialValue::nCommittedSize);
     ret = secp256k1_pedersen_commit(secp256k1_blind_context, &value_commit, value_blindptr, amount, &asset_gen);
     assert(ret != 0);
-    secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, conf_value.vchCommitment.data(), &value_commit);
+    secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, conf_value.GetUnsafeBytes().data(), &value_commit);
     assert(conf_value.IsValid());
 }
 
@@ -637,7 +635,7 @@ void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_b
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         // Any place-holder blinding pubkeys are extracted
         if (tx.vout[nOut].nValue.IsExplicit()) {
-            CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
+            CPubKey pubkey(tx.vout[nOut].nNonce.GetAsPubKey());
             if (pubkey.IsFullyValid()) {
                 output_pubkeys.push_back(pubkey);
             } else {

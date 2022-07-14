@@ -74,7 +74,7 @@ bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char
     }
 
     secp256k1_generator blinded_asset_gen;
-    if (secp256k1_generator_parse(secp256k1_blind_context, &blinded_asset_gen, conf_asset.vchCommitment.data()) == 0) {
+    if (secp256k1_generator_parse(secp256k1_blind_context, &blinded_asset_gen, conf_asset.GetCommitment().data()) == 0) {
         return false;
     }
     secp256k1_generator asset_gen;
@@ -150,7 +150,7 @@ static bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const 
     if (!secp256k1_generator_generate(secp256k1_blind_context, &asset_gen, asset.begin())) {
         return false;
     }
-    if (secp256k1_generator_parse(secp256k1_blind_context, &blinded_asset_gen, asset_commit.vchCommitment.data()) == 0) {
+    if (secp256k1_generator_parse(secp256k1_blind_context, &blinded_asset_gen, asset_commit.GetCommitment().data()) == 0) {
         return false;
     }
 
@@ -176,12 +176,12 @@ static bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const 
 bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_pedersen_commitment value_commit;
-    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) == 0) {
+    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.GetCommitment().data()) == 0) {
         return false;
     }
 
     secp256k1_generator gen;
-    if (secp256k1_generator_parse(secp256k1_blind_context, &gen, conf_asset.vchCommitment.data()) == 0) {
+    if (secp256k1_generator_parse(secp256k1_blind_context, &gen, conf_asset.GetCommitment().data()) == 0) {
         return false;
     }
 
@@ -222,20 +222,20 @@ BlindProofResult VerifyBlindProofs(const PSBTOutput& o) {
 
 void CreateAssetCommitment(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, const CAsset& asset, const uint256& asset_blinder)
 {
-    conf_asset.vchCommitment.resize(CConfidentialAsset::nCommittedSize);
+    conf_asset.GetUnsafeBytes().resize(CConfidentialAsset::nCommittedSize);
     int ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &asset_gen, asset.begin(), asset_blinder.begin());
     assert(ret == 1);
-    ret = secp256k1_generator_serialize(secp256k1_blind_context, conf_asset.vchCommitment.data(), &asset_gen);
+    ret = secp256k1_generator_serialize(secp256k1_blind_context, conf_asset.GetUnsafeBytes().data(), &asset_gen);
     assert(ret == 1);
 }
 
 void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_commitment& value_commit, const uint256& value_blinder, const secp256k1_generator& asset_gen, const CAmount amount)
 {
     int ret;
-    conf_value.vchCommitment.resize(CConfidentialValue::nCommittedSize);
+    conf_value.GetUnsafeBytes().resize(CConfidentialValue::nCommittedSize);
     ret = secp256k1_pedersen_commit(secp256k1_blind_context, &value_commit, value_blinder.begin(), amount, &asset_gen);
     assert(ret == 1);
-    secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, conf_value.vchCommitment.data(), &value_commit);
+    secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, conf_value.GetUnsafeBytes().data(), &value_commit);
     assert(conf_value.IsValid());
 }
 
@@ -361,9 +361,9 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
             if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), asset.GetAsset().begin()) != 1) {
                 return BlindingStatus::INVALID_ASSET;
             }
-        } else {
+        } else if (asset.IsCommitment()) {
             // Parse the asset commitment as a generator (because it is)
-            if (secp256k1_generator_parse(secp256k1_blind_context, &ephemeral_input_tags.back(), asset.vchCommitment.data()) != 1) {
+            if (secp256k1_generator_parse(secp256k1_blind_context, &ephemeral_input_tags.back(), asset.GetCommitment().data()) != 1) {
                 return BlindingStatus::INVALID_ASSET_COMMITMENT;
             }
         }
@@ -379,7 +379,7 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
             memcpy(fixed_input_tags.back().data, asset.GetAsset().begin(), 32);
             input_asset_blinders.emplace_back(); // No blinding factor, put 0
         } else {
-            memcpy(fixed_input_tags.back().data, asset.vchCommitment.data() + 1, 32);
+            memcpy(fixed_input_tags.back().data, asset.GetCommitment().data() + 1, 32);
             input_asset_blinders.emplace_back(); // We don't know the blinding factor, put 0
         }
 

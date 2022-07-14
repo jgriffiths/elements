@@ -165,7 +165,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
             txoutwit.vchSurjectionproof = output.m_asset_surjection_proof;
         }
         if (output.m_ecdh_pubkey.IsValid() && !force_unblinded) {
-            txout.nNonce.vchCommitment.insert(txout.nNonce.vchCommitment.end(), output.m_ecdh_pubkey.begin(), output.m_ecdh_pubkey.end());
+            txout.nNonce.SetToPubKey(output.m_ecdh_pubkey);
         }
         mtx.vout.push_back(txout);
         mtx.witness.vtxoutwit.push_back(txoutwit);
@@ -881,7 +881,7 @@ void PartiallySignedTransaction::SetupFromTx(const CMutableTransaction& tx)
 
         // Usually the blinding pubkey is put into the nonce, so pull it out of there
         if (txout.nNonce.IsCommitment()) {
-            output.m_blinding_pubkey.Set(txout.nNonce.vchCommitment.begin(), txout.nNonce.vchCommitment.end());
+            output.m_blinding_pubkey = txout.nNonce.GetAsPubKey();
         }
     }
 }

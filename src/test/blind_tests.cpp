@@ -76,27 +76,29 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         // Malleate the output and check for correct handling of bad commitments
         // These will fail IsValid checks
-        std::vector<unsigned char> asset_copy(tx3.vout[0].nAsset.vchCommitment);
-        std::vector<unsigned char> value_copy(tx3.vout[0].nValue.vchCommitment);
-        tx3.vout[0].nAsset.vchCommitment[0] = 122;
+        std::vector<unsigned char>& vout0_asset = tx3.vout[0].nAsset.GetUnsafeBytes();
+        std::vector<unsigned char>& vout0_value = tx3.vout[0].nValue.GetUnsafeBytes();
+        std::vector<unsigned char> asset_copy(vout0_asset);
+        std::vector<unsigned char> value_copy(vout0_value);
+        vout0_asset[0] = 122;
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
-        tx3.vout[0].nAsset.vchCommitment = asset_copy;
-        tx3.vout[0].nValue.vchCommitment[0] = 122;
+        vout0_asset = asset_copy;
+        vout0_value[0] = 122;
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
-        tx3.vout[0].nValue.vchCommitment = value_copy;
+        vout0_value = value_copy;
 
         // Make sure null values are handled correctly
         tx3.vout[0].nAsset.SetNull();
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
-        tx3.vout[0].nAsset.vchCommitment = asset_copy;
+        vout0_asset = asset_copy;
         tx3.vout[0].nValue.SetNull();
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
-        tx3.vout[0].nValue.vchCommitment = value_copy;
+        vout0_value = value_copy;
 
         // Bad nonce values will result in failure to deserialize
         tx3.vout[0].nNonce.SetNull();
         BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
-        tx3.vout[0].nNonce.vchCommitment = tx3.vout[0].nValue.vchCommitment;
+        tx3.vout[0].nNonce.GetUnsafeBytes() = vout0_value;
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
 
         // Try to blind with a single non-fee output, which fails as its blinding factor ends up being zero.
@@ -248,16 +250,17 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, CScript() << OP_FALSE, tx4.witness.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
 
         // Make invalid public keys in nonce commitment, first of right size
-        tx4.vout[2].nNonce.vchCommitment = std::vector<unsigned char>(33, 0);
-        tx4.vout[2].nNonce.vchCommitment[0] = 0x03;
+        std::vector<unsigned char>& vout2_nonce = tx4.vout[2].nNonce.GetUnsafeBytes();
+        vout2_nonce = std::vector<unsigned char>(33, 0);
+        vout2_nonce[0] = 0x03;
         BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, op_true, tx4.witness.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
 
         // Next, leading byte claiming to be 33 bytes in size
-        tx4.vout[2].nNonce.vchCommitment.resize(1);
+        vout2_nonce.resize(1);
         BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, op_true, tx4.witness.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
 
         // Last, blank nonce commitment
-        tx4.vout[2].nNonce.vchCommitment.clear();
+        vout2_nonce.clear();
         BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, op_true, tx4.witness.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
 
         tx4.vout[3].nValue = CConfidentialValue(tx4.vout[3].nValue.GetAmount() - 1);

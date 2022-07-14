@@ -1962,7 +1962,7 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
                         uint256 asset_factor;
 
                         CConfidentialNonce nonce;
-                        nonce.vchCommitment.insert(nonce.vchCommitment.end(), o.m_ecdh_pubkey.begin(), o.m_ecdh_pubkey.end());
+                        nonce.SetToPubKey(o.m_ecdh_pubkey);
                         if (UnblindConfidentialPair(blinding_key, o.m_value_commitment, o.m_asset_commitment, nonce, *o.script, o.m_value_rangeproof, value, value_factor, asset, asset_factor)) {
                             // These assertions are cryptographically impossible to trigger, as we
                             // checked the proofs above, and then `UnblindConfidentialPair` checks
@@ -2008,8 +2008,7 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
         }
         if (output.m_ecdh_pubkey.IsValid()) {
             // The nonce is actually the ecdh pubkey
-            out.nNonce.vchCommitment.clear();
-            out.nNonce.vchCommitment.insert(out.nNonce.vchCommitment.end(), output.m_ecdh_pubkey.begin(), output.m_ecdh_pubkey.end());
+            out.nNonce.SetToPubKey(output.m_ecdh_pubkey);
         }
 
         // The signature can't depend on witness contents, so these are technically not necessary to sign.

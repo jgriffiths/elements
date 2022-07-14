@@ -93,8 +93,8 @@ static inline void push8_le(std::vector<valtype>& stack, uint64_t v)
 static inline void pushasset(std::vector<valtype>& stack, const CConfidentialAsset& asset)
 {
     assert(!asset.IsNull());
-    stack.emplace_back(asset.vchCommitment.begin() + 1, asset.vchCommitment.end()); // Push asset without prefix
-    stack.emplace_back(asset.vchCommitment.begin(), asset.vchCommitment.begin() + 1); // Push prefix
+    stack.emplace_back(asset.GetUnsafeBytes().begin() + 1, asset.GetUnsafeBytes().end()); // Push asset without prefix
+    stack.emplace_back(asset.GetUnsafeBytes().begin(), asset.GetUnsafeBytes().begin() + 1); // Push prefix
 }
 
 static inline void pushvalue(std::vector<valtype>& stack, const CConfidentialValue& value)
@@ -106,11 +106,11 @@ static inline void pushvalue(std::vector<valtype>& stack, const CConfidentialVal
         vchinpValue.assign(8, 0x00);
     } else if (value.IsExplicit()) {
         // Convert BE to LE by using reverse iterator
-        vchValuePref.assign(value.vchCommitment.begin(), value.vchCommitment.begin() + 1);
-        vchinpValue.assign(value.vchCommitment.rbegin(), value.vchCommitment.rbegin() + 8);
+        vchValuePref.assign(value.GetUnsafeBytes().begin(), value.GetUnsafeBytes().begin() + 1);
+        vchinpValue.assign(value.GetUnsafeBytes().rbegin(), value.GetUnsafeBytes().rbegin() + 8);
     } else { // (value.IsCommitment())
-        vchValuePref.assign(value.vchCommitment.begin(), value.vchCommitment.begin() + 1);
-        vchinpValue.assign(value.vchCommitment.begin() + 1, value.vchCommitment.end());
+        vchValuePref.assign(value.GetUnsafeBytes().begin(), value.GetUnsafeBytes().begin() + 1);
+        vchinpValue.assign(value.GetUnsafeBytes().begin() + 1, value.GetUnsafeBytes().end());
     }
     stack.push_back(std::move(vchinpValue)); // if value is null, 0(LE 8) is pushed
     stack.push_back(std::move(vchValuePref)); // always push prefix
@@ -1961,7 +1961,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                             if (out.nNonce.IsNull()) {
                                 stack.push_back(vchFalse);
                             } else {
-                                stack.emplace_back(out.nNonce.vchCommitment);
+                                stack.emplace_back(out.nNonce.GetUnsafeBytes());
                             }
                             break;
                         }

@@ -188,7 +188,7 @@ Result CreateRateBumpTransaction(CWallet& wallet, const uint256& txid, const CCo
         }
 
         if (!is_change && !is_fee) {
-            CRecipient recipient = {output.scriptPubKey, output.nValue.GetAmount(), output.nAsset.GetAsset(), CPubKey(output.nNonce.vchCommitment), false};
+            CRecipient recipient = {output.scriptPubKey, output.nValue.GetAmount(), output.nAsset.GetAsset(), output.nNonce.GetAsPubKey(), false};
             recipients.push_back(recipient);
         } else if (is_change) {
             CTxDestination change_dest;
